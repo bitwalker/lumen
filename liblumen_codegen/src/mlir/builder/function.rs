@@ -19,8 +19,8 @@ use libeir_util_datastructures::pooled_entity_set::BoundEntitySet;
 
 use crate::Result;
 
-use liblumen_session::Options;
 use liblumen_core::symbols::FunctionSymbol;
+use liblumen_session::Options;
 
 use super::block::{Block, BlockData};
 use super::ffi::*;
@@ -84,7 +84,16 @@ impl<'a, 'm, 'f> FunctionBuilder<'a, 'm, 'f> {
                 self.with_scope(fi, loc, f, &analysis, data, options)
                     .and_then(|scope| scope.build())?
             };
+            // if format!("{}", &ident) == "init:module_info/0" {
+            //     debug!("SKIPPING ADDING {}", &ident);
+            //     continue;
+            // }
+            debug!("ADDING {}", &ident);
+            unsafe {
+                MLIRDumpFunction(func);
+            }
             unsafe { MLIRAddFunction(self.builder.as_ref(), func) }
+            debug!("ADDED {}", &ident);
         }
 
         Ok(())
@@ -181,10 +190,10 @@ pub struct ScopedFunctionBuilder<'f, 'o> {
 #[macro_export]
 macro_rules! debug_in {
     ($this:expr, $format:expr) => {
-        debug!("{}: {}", $this.name(), $format);
+        debug!("{}: {}", $this.ident(), $format);
     };
     ($this:expr, $format:expr, $($arg:expr),+) => {
-        debug!("{}: {}", $this.name(), &format!($format, $($arg),+));
+        debug!("{}: {}", $this.ident(), &format!($format, $($arg),+));
     }
 }
 
@@ -202,14 +211,14 @@ impl<'f, 'o> ScopedFunctionBuilder<'f, 'o> {
 
     /// Returns the current function identifier
     #[inline]
-    pub fn name(&self) -> &FunctionIdent {
-        self.func.name()
+    pub fn ident(&self) -> &FunctionIdent {
+        self.func.ident()
     }
 
     /// Prints debugging messages with the name of the function being built
     #[cfg(debug_assertions)]
     pub(super) fn debug(&self, message: &str) {
-        debug!("{}: {}", self.name(), message);
+        debug!("{}: {}", self.ident(), message);
     }
 
     #[cfg(not(debug_assertions))]
@@ -424,7 +433,7 @@ impl<'f, 'o> ScopedFunctionBuilder<'f, 'o> {
 
     /// Returns true if the given symbol is the same as the current functions' module name
     pub fn is_current_module(&self, m: Symbol) -> bool {
-        self.func.name().module.name == m
+        self.func.ident().module.name == m
     }
 
     /// Returns the current block arguments as values
